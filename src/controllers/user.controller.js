@@ -10,6 +10,22 @@ import {
 	getStatusCode,
 } from "http-status-codes"
 
+const generateAccessAndRefreshTokens = async(userId)=>{
+    try{
+        const user = await User.findById(userId)
+
+        const accessToken = await user.genrateAccessToken();
+        const refreshToken = await user.genrateRefreshToken();
+    
+        user.refreshToken = refreshToken;
+        await user.save({validateBeforeSave:false})
+    
+        return {accessToken,refreshToken};
+    }catch{
+        throw new APIErrors(500,"something went wring while creating Tokens");
+    }
+}
+
 const registerUser = asyncHandler( async(req,res)=>{
     //steps to understand the logic of registerUser
     //get user deatails from frontEnd
@@ -57,7 +73,7 @@ const registerUser = asyncHandler( async(req,res)=>{
     //const coveerImage = await uploadOnCloudinary(coverImageLocalPath);
 
     //step-6
-    const user = User.create({
+    const user = await User.create({
         fullname,
         email,
         password,
@@ -67,7 +83,7 @@ const registerUser = asyncHandler( async(req,res)=>{
     })
     
     //step-7
-    const userCreated = User.findById(user._id).select(
+    const userCreated = await User.findById(user._id).select(
         "-password -refreshToken"
     )
 
@@ -82,7 +98,75 @@ const registerUser = asyncHandler( async(req,res)=>{
     )
 })
 
-export{
-    registerUser
-}
+const loginUser = asyncHandler(async(req,res)=>{
+    //getting data from body;
+    //username or email
+    // finding user in db
+    // matching passss
+    //access and refresh token 
+    //send cookie
+     
+    //step-1;
+    const {username,password,email} = req.body;
+    console.log(email);
 
+    if(!username || !email){
+        throw new APIErrors(400,"username or email is required");
+    }
+
+    const user = User.findById({
+        $or:[{username},{email}]
+    })
+
+    if(!user){
+        throw new APIErrors(404,"user does not exist");
+    }
+
+    const isPasswordValid = await user.isPasswordCorrect(password);
+
+    if(!isPasswordValid){
+        throw new APIErrors(401,"Invalid credentials!");
+    }
+
+    const{accessToken,refreshToken} = await generateAccessAndRefreshTokens(user._id)
+    
+    const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
+
+    const option={
+        httpOnly: true,
+        secure: true
+    }
+
+    return res.status(200).cookie(accessToken,option).cookie(refreshToken,option).json(
+        new APIResponse(200,{user:loggedInUser,accessToken,refreshToken},"user logged in successfully")
+    )
+})
+
+const logoutUser = asyncHandler(async(req,res)=>{
+    await User.findOneAndUpdate(
+        req.user._id,
+        {
+            $unset:{
+                refreshToken:1
+            }
+        },
+        {
+            new:true,
+        }
+    )
+    const option={
+        httpOnly: true,
+        secure: true
+    }
+    return res
+    .status(200)
+    .clearCookie("accessToken", option)
+    .clearCookie("refreshToken", option)
+    .json(new APIResponse(200, {}, "User logged Out"))
+})
+
+export{
+    registerUser,
+    loginUser,
+    logoutUser,
+}
