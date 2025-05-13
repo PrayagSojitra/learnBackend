@@ -1,42 +1,28 @@
-import { v2 as cloudinary } from "cloudinary";
-import fs from "fs/promises"
+import {v2 as cloudinary} from "cloudinary"
+import fs from "fs"
 
-cloudinary.config({
-    cloud_name:process.env.CLOUDINARY_NAME,
-    api_key:process.env.CLOUDINARY_API_KEY,
-    api_secret:process.env.CLOUDINARY_API_SECRET,
-})
 
-const uploadOnCloudinary = async(localpath)=>{
-    if(!localpath) return null;
+cloudinary.config({ 
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
+  api_key: process.env.CLOUDINARY_API_KEY, 
+  api_secret: process.env.CLOUDINARY_API_SECRET 
+});
 
+const uploadOnCloudinary = async (localFilePath) => {
     try {
-
-        //upload file on cloudinary
-        const response = await cloudinary.uploader.upload({
-            localpath,
-            resource_type:"auto",
+        if (!localFilePath) return null
+        //upload the file on cloudinary
+        const response = await cloudinary.uploader.upload(localFilePath, {
+            resource_type: "auto"
         })
-        await fs.unlinkSync(localpath);
+        // file has been uploaded successfull
+        //console.log("file is uploaded on cloudinary ", response.url);
+        fs.unlinkSync(localFilePath)
         return response;
 
     } catch (error) {
-        
-        console.error("Cloudinary Upload Error:",error.message)
-
-        //attemp to delete the localfile even on failure    
-        try {
-            await fs.unlinkSync(localpath);
-        } catch (unlinkErr) {
-            console.error("Failed to delete localfile:",unlinkErr.message);
-        }
-
-        //return more detailed error or null
-        return {
-            success:false,
-            message:"Upload Error",
-            error:error.message
-        }
+        fs.unlinkSync(localFilePath) // remove the locally saved temporary file as the upload operation got failed
+        return null;
     }
 }
 

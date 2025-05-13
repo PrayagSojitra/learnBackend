@@ -62,7 +62,11 @@ const registerUser = asyncHandler( async(req,res)=>{
 
     //step-4
     const avatarLocalPath = req.files?.avatar[0]?.path;
-    //const coverImageLocalPath = req.files?.coverImage[0]?.path;
+    
+    let coverImageLocalPath;
+    if(req.files && Array.isArray(req.files.coverimage) && req.files.coverimage.length > 0){
+        coverImageLocalPath = req.files.coverimage[0].path;
+    }
 
     if(!avatarLocalPath){
         throw new APIErrors(StatusCodes.BAD_REQUEST,"Avatar file required");
@@ -70,7 +74,7 @@ const registerUser = asyncHandler( async(req,res)=>{
 
     //step-5
     const avatar = await uploadOnCloudinary(avatarLocalPath);
-    //const coveerImage = await uploadOnCloudinary(coverImageLocalPath);
+    const coverimage = await uploadOnCloudinary(coverImageLocalPath);
 
     //step-6
     const user = await User.create({
@@ -79,7 +83,7 @@ const registerUser = asyncHandler( async(req,res)=>{
         password,
         username:username.toLowerCase(),
         avatar:avatar.url,
-        coverimage:coverimage.url || "",
+        coverimage:coverimage?.url || "",
     })
     
     //step-7
